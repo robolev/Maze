@@ -1,10 +1,15 @@
-﻿
+﻿using System;
+using System.Drawing;
+
 namespace Maze
 {
-    internal class Program
+    static class Program
     {
 
-        static char[,] world;    
+        static char[,] world;
+        static int startX = 0;
+        static int startY = 0;
+        static bool Finish = false;
         enum Direction
         { 
           Up,
@@ -15,7 +20,11 @@ namespace Maze
         static Direction direction;
         static void Main(string[] args)
         {
-            GenerateWorld();      
+            int farthestX;
+            int farthestY;
+            GenerateWorld();
+            FindFarthestPoint(startX,startY,out farthestX,out farthestY);
+            world[farthestY, farthestX] = 'F';
             GameLoop();
         }
 
@@ -23,16 +32,17 @@ namespace Maze
         {
             Random rnd = new Random();
 
-            world = new char[1000, 1000];
-
-            for (int i = 0; i < 1000; i++)
+            world = GenerateMaze(Console.WindowWidth, Console.WindowHeight);
+            for (int y = 0; y < world.GetLength(0); y++)
             {
-                for (int j = 0; j < 1000; j++)
+                for (int x = 0; x < world.GetLength(1); x++)
                 {
-                    char symbol = 'o';
-                    world[i, j] = symbol;
+                    Console.Write(world[y, x]);
+
                 }
+                Console.WriteLine();
             }
+
         }
 
         static void Input()
@@ -65,21 +75,17 @@ namespace Maze
 
         static void GameLoop()
         {
-            int playerX = 30;
-            int playerY = 20;
+            int playerX = startX;
+            int playerY = startY;
             int lastFrameTimeMs = Environment.TickCount;
             int targetFps = 30;
             int targetFrameTimeMs = 60 / targetFps;
             int frames = 0;
             double elapsedTime = 0;
             double fps = 0;
-            double time = 0.19;
-            const double cameraDistanceX = 0.4;
-            const double cameraDistanceY = 0.5;
-            double cameraX = playerX - Console.WindowWidth * 0.4;
-            double cameraY = playerY - Console.WindowHeight * 0.4;
+            double time = 0.19;           
 
-            while (true)
+            while(Finish != true)
             {
                 elapsedTime += time;
                 frames++;
@@ -97,11 +103,9 @@ namespace Maze
                     Thread.Sleep(delayMs);
                     elapsedMs += delayMs;
                 }
-
+                
                 Input();
                 MovePlayer(ref playerX, ref playerY);
-                cameraX = playerX - Console.WindowWidth * cameraDistanceX;
-                cameraY = playerY - Console.WindowHeight * cameraDistanceY;
                 DrawWorld( playerX, playerY);
                 DrawPLayerPosition(playerX,playerY);
                 Console.SetCursorPosition(0, Console.WindowHeight - 1);
@@ -110,11 +114,10 @@ namespace Maze
         }
         static void DrawWorld(int playerX, int playerY)
         {
-            Console.Clear();
-            char[,] buffer = new char[1000, 1000];
-            ConsoleColor[,] colors = new ConsoleColor[1000, 1000];
+            Console.Clear();            
+            char[,] buffer = new char[Console.WindowHeight, Console.WindowWidth];          
+            ConsoleColor[,] colors = new ConsoleColor[Console.WindowHeight, Console.WindowWidth];
 
-            // Calculate the bounds of the visible area
             int startX = Math.Max(0, playerX - 5);
             int startY = Math.Max(0, playerY - 2);
             int endX = Math.Min(Console.WindowWidth - 1, playerX + 5);
@@ -151,21 +154,179 @@ namespace Maze
             switch (direction)
             {
                 case Direction.Up:
-                    y--;
+                    nextY--;                                    
                     break;
                 case Direction.Left:
-                    x--;
+                    nextX--;
                     break;
                 case Direction.Down:
-                    y++;
+                    nextY++;
                     break;
                 case Direction.Right:
-                    x++;
+                    nextX++;
                     break;
             }
+            if (world[nextY, nextX] != 'o')
+            {
+                x = nextX;
+                y = nextY;
+            }
+            if(world[nextY, nextX] == 'F')
+            {
+                Win();            
+            }
+            Dig(nextX,nextY);
+        }
+        static char[,] GenerateMaze(int width, int height)
+        {
+           
+            char[,] maze = new char[height, width];
+
+           
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    maze[y, x] = 'o';
+                }
+            }
+
+           
+            Random random = new Random();
+            startX = random.Next(1, width - 1);
+            startY = random.Next(1, height - 1);
+            maze[startY, startX] = ' ';
+
+          
+            Stack<(int, int)> stack = new Stack<(int, int)>();
+            stack.Push((startX, startY));
+
             
-            //   x = Math.Max(0, Math.Min(x, Console.WindowWidth - 1));
-            //    y = Math.Max(0, Math.Min(y, Console.WindowHeight - 1));
+            while (stack.Count > 0)
+            {
+               
+                (int x, int y) = stack.Pop();
+
+                
+                List<(int, int)> neighbors = new List<(int, int)>();
+                if (x > 1) neighbors.Add((x - 2, y));
+                if (y > 1) neighbors.Add((x, y - 2));
+                if (x < width - 4) neighbors.Add((x + 2, y));
+                if (y < height - 4) neighbors.Add((x, y + 2));
+
+                
+                neighbors.Shuffle(random);
+
+               
+                bool makePath = false;
+                foreach ((int nx, int ny) in neighbors)
+                {
+                    
+                    if (maze[ny, nx] == 'o')
+                    {
+                        
+                        maze[(y + ny) / 2, (x + nx) / 2] = ' ';
+                        maze[(y + ny) / 2, (x + nx) / 2 + 1] = ' ';
+                        maze[(y + ny) / 2, (x + nx) / 2 - 1] = ' ';
+                        maze[ny, nx] = ' ';
+                      
+                        stack.Push((nx, ny));
+
+                        makePath = true;
+                        break;
+                    }
+                }
+
+                if (!makePath)
+                {
+                   
+                    continue;
+                }
+            }
+
+            return maze;
+        }
+        public static void Shuffle<T>(this IList<T> list, Random random)
+        {
+            int n = list.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = random.Next(n + 1);
+                T value = list[k];
+                list[k] = list[n];
+                list[n] = value;
+            }
+        }
+        static void Dig(int x,int y)
+        {
+            if (Console.ReadKey(true).Key == ConsoleKey.E)
+            {
+                world[y, x] = ' ';
+            }
+
+        }
+        static void FindFarthestPoint(int playerX, int playerY, out int farX, out int farY)
+        {
+            Random random = new Random();
+
+            farX = playerX;
+            farY = playerY;
+
+            int maxDistance = 0;
+
+            for (int i = 0; i < world.GetLength(0); i++)
+            {
+                for (int j = 0; j < world.GetLength(1); j++)
+                {
+                    if (world[i, j] == ' ')
+                    {
+                        int distance = Math.Abs(playerX - j) + Math.Abs(playerY - i);
+                        if (distance > maxDistance)
+                        {
+                            maxDistance = distance;
+                            farX = j;
+                            farY = i;
+                        }
+                        else if (distance == maxDistance)
+                        {
+                            if (random.Next(2) == 0)
+                            {
+                                farX = j;
+                                farY = i;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        static void Win()
+        { 
+          Console.Clear();
+            Console.WriteLine("WinWinWinWinWin   WinWinWinWinWinWinWinWinW     inWinWinWinWinWin");
+            Console.WriteLine("WinWinWinWin     WinWinWinWinWinWinWinWin       WinWinWin");
+            Console.WriteLine("WinWinWinWin      nWinWinWinWinWinWin            WinWinWin");
+            Console.WriteLine( "WinWinWinWin       WinWinWinWinWin              Win");
+            Console.WriteLine("WinWinWin          WinWinWinWin                  Win");
+            Console.WriteLine("   WinWin           WinWinWinWin                  Win");
+            Console.WriteLine("   WinWin             WinWinWin                  Win");
+            Console.WriteLine("   WinWin                                       Win");
+            Console.WriteLine("    WinWin       WinWin            WinWin        Win");
+            Console.WriteLine("    WinWin       W   in            W   in        Win");
+            Console.WriteLine("    WinWin       WinWin            WinWin        Win");
+            Console.WriteLine("     WinWin                                    Win");
+            Console.WriteLine("      WinWin               WinWin               Win");
+            Console.WriteLine("        WinWin                W                   Win");
+            Console.WriteLine("         WinWin            W  W  W                  Win");
+            Console.WriteLine("           WinWin           W   W                     Win" );
+            Console.WriteLine("      Win     WinWin                                    Win");
+            Console.WriteLine("   Wi    wi     WinWin                                    Win");
+            Console.WriteLine("   Wi    Win    Win                                        Win");
+            Console.WriteLine("Wi        WinWinWin                                         Win");
+            Console.WriteLine("Wi                                                        Win");
+            Console.WriteLine("Wi                                                       Win");
+            Console.WriteLine(" WinWin                                                 Win");
+            Finish = true;
         }
     }
 }
