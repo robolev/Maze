@@ -9,29 +9,35 @@ namespace Maze
         static char[,] world;
         static int startX = 0;
         static int startY = 0;
-        static bool Finish = false;
+        static bool isFinished = false;
+
+        static bool isPlayerWantToDig = false;
+
+        static double time = 0.19;
+        static double elapsedTime = 0;
+        static double fps = 0;
+        static int lastFrameTimeMs = Environment.TickCount;
+        static int targetFps = 30;
+        static int targetFrameTimeMs = 1000 / targetFps;
+        static int frames = 0;
         enum Direction
-        { 
-          Up,
-          Down,
-          Left,
-          Right        
+        {
+            Up,
+            Down,
+            Left,
+            Right,
+            Dig,
         }
         static Direction direction;
         static void Main(string[] args)
         {
-            int farthestX;
-            int farthestY;
             GenerateWorld();
-            FindFarthestPoint(startX,startY,out farthestX,out farthestY);
-            world[farthestY, farthestX] = 'F';
+            PlaceFinish();
             GameLoop();
         }
 
         static void GenerateWorld()
         {
-            Random rnd = new Random();
-
             world = GenerateMaze(Console.WindowWidth, Console.WindowHeight);
             for (int y = 0; y < world.GetLength(0); y++)
             {
@@ -42,17 +48,69 @@ namespace Maze
                 }
                 Console.WriteLine();
             }
+            Console.ReadKey();
+            Console.Clear();
+        }
 
+        static void DrawPlayerPosition(int x, int y)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.SetCursorPosition(x, y);
+            Console.Write("X");
+        }
+
+        static void GameLoop()
+        {
+            int playerX = startX;
+            int playerY = startY;
+            
+
+            while (!isFinished)
+            {                              
+                UpdateFPSCount();
+
+                DrawWorld(playerX, playerY);
+                DrawPlayerPosition(playerX, playerY);
+                
+                Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                Input();
+                MovePlayer(ref playerX, ref playerY);
+              
+            }
+        } 
+
+
+        static void UpdateFPSCount()
+        {           
+            elapsedTime += time;
+            frames++;
+            if (elapsedTime >= 1)
+            {
+               fps = frames / elapsedTime;
+               elapsedTime = 0;
+               frames = 0;
+            }
+
+            int elapsedMs = Environment.TickCount - lastFrameTimeMs;
+            if (elapsedMs < targetFrameTimeMs)
+            {
+               int delayMs = targetFrameTimeMs - elapsedMs;
+               Thread.Sleep(delayMs);
+               elapsedMs += delayMs;
+            }
+
+            lastFrameTimeMs = Environment.TickCount;
+            Console.SetCursorPosition(0, Console.WindowHeight - 1);
+            Console.Write($"Frame rate: {fps:F2} fps ");
         }
 
         static void Input()
         {
-            //Direction direction = 0;
             ConsoleKeyInfo keyInfo = Console.ReadKey();
             switch (keyInfo.Key)
             {
                 case ConsoleKey.W:
-                    direction = Direction.Up; 
+                    direction = Direction.Up;
                     break;
                 case ConsoleKey.A:
                     direction = Direction.Left;
@@ -61,61 +119,17 @@ namespace Maze
                     direction = Direction.Down;
                     break;
                 case ConsoleKey.D:
-                    direction= Direction.Right;
+                    direction = Direction.Right;
+                    break;
+                case ConsoleKey.E:
+                    isPlayerWantToDig = true;
                     break;
             }
-           
-        }
-        static void DrawPLayerPosition(int x, int y)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.SetCursorPosition(x, y);
-            Console.Write("X");   
         }
 
-        static void GameLoop()
-        {
-            int playerX = startX;
-            int playerY = startY;
-            int lastFrameTimeMs = Environment.TickCount;
-            int targetFps = 30;
-            int targetFrameTimeMs = 60 / targetFps;
-            int frames = 0;
-            double elapsedTime = 0;
-            double fps = 0;
-            double time = 0.19;           
-
-            while(Finish != true)
-            {
-                elapsedTime += time;
-                frames++;
-                if (elapsedTime >= 1)
-                {
-                    fps = frames / elapsedTime;
-                    elapsedTime = 0;
-                    frames = 0;
-                }
-
-                int elapsedMs = Environment.TickCount - lastFrameTimeMs;
-                if (elapsedMs < targetFrameTimeMs)
-                {
-                    int delayMs = targetFrameTimeMs - elapsedMs;
-                    Thread.Sleep(delayMs);
-                    elapsedMs += delayMs;
-                }
-                
-                Input();
-                MovePlayer(ref playerX, ref playerY);
-                DrawWorld( playerX, playerY);
-                DrawPLayerPosition(playerX,playerY);
-                Console.SetCursorPosition(0, Console.WindowHeight - 1);
-                Console.Write($"Frame rate: {fps:F2} fps ");
-            }         
-        }
         static void DrawWorld(int playerX, int playerY)
         {
-            Console.Clear();            
-            char[,] buffer = new char[Console.WindowHeight, Console.WindowWidth];          
+            char[,] buffer = new char[Console.WindowHeight, Console.WindowWidth];
             ConsoleColor[,] colors = new ConsoleColor[Console.WindowHeight, Console.WindowWidth];
 
             int startX = Math.Max(0, playerX - 5);
@@ -123,22 +137,32 @@ namespace Maze
             int endX = Math.Min(Console.WindowWidth - 1, playerX + 5);
             int endY = Math.Min(Console.WindowHeight - 1, playerY + 2);
 
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.BackgroundColor = ConsoleColor.Black;
             for (int i = startY; i <= endY; i++)
             {
                 for (int j = startX; j <= endX; j++)
                 {
                     buffer[i, j] = world[i, j];
                     ConsoleColor brown = (ConsoleColor)((int)ConsoleColor.DarkRed + (int)ConsoleColor.Green);
-                    colors[i, j] = brown;         
+                    colors[i, j] = brown;
+                    Console.ForegroundColor = colors[i, j];
+                    Console.SetCursorPosition(j, i);
+                    Console.Out.Write(buffer[i, j]);
                 }
-            }            
+            }
 
+          //  ColorField(Console.WindowWidth, Console.WindowHeight, buffer, colors);
+        }
+
+        static void ColorField(int width, int height, char[,] buffer, ConsoleColor[,] colors)
+        {
             Console.ForegroundColor = ConsoleColor.White;
             Console.BackgroundColor = ConsoleColor.Black;
 
-            for (int i = startY; i <= endY; i++)
+            for (int i = 0; i < height; i++)
             {
-                for (int j = startX; j <= endX; j++)
+                for (int j = 0; j < width; j++)
                 {
                     Console.ForegroundColor = colors[i, j];
                     Console.SetCursorPosition(j, i);
@@ -146,7 +170,43 @@ namespace Maze
                 }
             }
         }
-        static void MovePlayer(ref int x,ref int y)
+        //    static void ColorField(int Width, int Height, char[,]buffer)
+        //     {
+
+        //        ConsoleColor[,] colors = new ConsoleColor[Console.WindowHeight, Console.WindowWidth];
+        //        for (int i = 0; i < Height; i++)
+        //        {
+        //            for (int j = 0; j < Width; j++)
+        //            {
+        //                buffer[i, j] = world[i, j];
+        //                ConsoleColor brown = (ConsoleColor)((int)ConsoleColor.DarkRed + (int)ConsoleColor.Green);
+        //                colors[i, j] = brown;
+
+        //            }
+        //        }
+        //   }
+        static void MovePlayer(ref int x, ref int y)
+        {
+            (int newX, int newY) = CalculateNewPlayerCoords(x, y);
+
+            char currentChar = world[newY, newX];
+
+            if (currentChar == 'o')
+            {
+
+                var hasDigged = Dig(newX, newY);
+
+                if (!hasDigged)
+                    return;
+            }
+
+            if (currentChar == 'F')
+                Win();
+
+            x = newX;
+            y = newY;
+        }
+        static (int, int) CalculateNewPlayerCoords(int x, int y)
         {
             int nextX = x;
             int nextY = y;
@@ -154,82 +214,71 @@ namespace Maze
             switch (direction)
             {
                 case Direction.Up:
-                    nextY--;                                    
+                    nextY--;
                     break;
+
                 case Direction.Left:
                     nextX--;
                     break;
+
                 case Direction.Down:
                     nextY++;
                     break;
+
                 case Direction.Right:
                     nextX++;
                     break;
             }
-            if (world[nextY, nextX] != 'o')
-            {
-                x = nextX;
-                y = nextY;
-            }
-            if(world[nextY, nextX] == 'F')
-            {
-                Win();            
-            }
-            Dig(nextX,nextY);
+
+            return (nextX, nextY);
         }
         static char[,] GenerateMaze(int width, int height)
         {
-           
-            char[,] maze = new char[height, width];
+            char[,] maze = GenerateBlankField(height, width);
 
-           
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    maze[y, x] = 'o';
-                }
-            }
-
-           
             Random random = new Random();
             startX = random.Next(1, width - 1);
             startY = random.Next(1, height - 1);
             maze[startY, startX] = ' ';
 
-          
             Stack<(int, int)> stack = new Stack<(int, int)>();
             stack.Push((startX, startY));
 
-            
             while (stack.Count > 0)
             {
-               
+
                 (int x, int y) = stack.Pop();
 
-                
                 List<(int, int)> neighbors = new List<(int, int)>();
-                if (x > 1) neighbors.Add((x - 2, y));
-                if (y > 1) neighbors.Add((x, y - 2));
-                if (x < width - 4) neighbors.Add((x + 2, y));
-                if (y < height - 4) neighbors.Add((x, y + 2));
 
-                
+                if (x > 1)
+                    neighbors.Add((x - 2, y));
+
+                if (y > 1)
+                    neighbors.Add((x, y - 2));
+
+                if (x < width - 4)
+                    neighbors.Add((x + 2, y));
+
+                if (y < height - 4)
+                    neighbors.Add((x, y + 2));
+
+
                 neighbors.Shuffle(random);
 
-               
+
                 bool makePath = false;
                 foreach ((int nx, int ny) in neighbors)
                 {
-                    
+
                     if (maze[ny, nx] == 'o')
                     {
-                        
+
                         maze[(y + ny) / 2, (x + nx) / 2] = ' ';
                         maze[(y + ny) / 2, (x + nx) / 2 + 1] = ' ';
                         maze[(y + ny) / 2, (x + nx) / 2 - 1] = ' ';
                         maze[ny, nx] = ' ';
-                      
+
                         stack.Push((nx, ny));
 
                         makePath = true;
@@ -239,8 +288,21 @@ namespace Maze
 
                 if (!makePath)
                 {
-                   
+
                     continue;
+                }
+            }
+
+            return maze;
+        }
+        static char[,] GenerateBlankField(int height,int width)
+        {
+            char[,] maze = new char[height, width];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    maze[y, x] = 'o';
                 }
             }
 
@@ -258,13 +320,16 @@ namespace Maze
                 list[n] = value;
             }
         }
-        static void Dig(int x,int y)
+        static bool Dig(int x, int y)
         {
-            if (Console.ReadKey(true).Key == ConsoleKey.E)
+            if (isPlayerWantToDig)
             {
                 world[y, x] = ' ';
+                isPlayerWantToDig = false;
+                return true;
             }
 
+            return false;
         }
         static void FindFarthestPoint(int playerX, int playerY, out int farX, out int farY)
         {
@@ -300,13 +365,20 @@ namespace Maze
                 }
             }
         }
+        static void PlaceFinish()
+        {
+            int farthestX;
+            int farthestY;
+            FindFarthestPoint(startX, startY, out farthestX, out farthestY);
+            world[farthestY, farthestX] = 'F';
+        }
         static void Win()
-        { 
-          Console.Clear();
+        {
+            Console.Clear();
             Console.WriteLine("WinWinWinWinWin   WinWinWinWinWinWinWinWinW     inWinWinWinWinWin");
             Console.WriteLine("WinWinWinWin     WinWinWinWinWinWinWinWin       WinWinWin");
             Console.WriteLine("WinWinWinWin      nWinWinWinWinWinWin            WinWinWin");
-            Console.WriteLine( "WinWinWinWin       WinWinWinWinWin              Win");
+            Console.WriteLine("WinWinWinWin       WinWinWinWinWin              Win");
             Console.WriteLine("WinWinWin          WinWinWinWin                  Win");
             Console.WriteLine("   WinWin           WinWinWinWin                  Win");
             Console.WriteLine("   WinWin             WinWinWin                  Win");
@@ -318,7 +390,7 @@ namespace Maze
             Console.WriteLine("      WinWin               WinWin               Win");
             Console.WriteLine("        WinWin                W                   Win");
             Console.WriteLine("         WinWin            W  W  W                  Win");
-            Console.WriteLine("           WinWin           W   W                     Win" );
+            Console.WriteLine("           WinWin           W   W                     Win");
             Console.WriteLine("      Win     WinWin                                    Win");
             Console.WriteLine("   Wi    wi     WinWin                                    Win");
             Console.WriteLine("   Wi    Win    Win                                        Win");
@@ -326,7 +398,8 @@ namespace Maze
             Console.WriteLine("Wi                                                        Win");
             Console.WriteLine("Wi                                                       Win");
             Console.WriteLine(" WinWin                                                 Win");
-            Finish = true;
+            isFinished = true;
+            Console.ReadKey();
         }
     }
 }
