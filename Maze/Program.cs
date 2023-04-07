@@ -1,6 +1,6 @@
-﻿using Microsoft.VisualBasic;
-using System;
+﻿using System;
 using System.Drawing;
+
 
 namespace Maze
 {
