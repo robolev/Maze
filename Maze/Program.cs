@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Drawing;
 
 namespace Maze
@@ -7,6 +8,8 @@ namespace Maze
     {
 
         static char[,] world;
+        static char[,] buffer = new char[Console.WindowHeight, Console.WindowWidth];
+        static ConsoleColor[,] colors = new ConsoleColor[Console.WindowHeight, Console.WindowWidth];
         static int startX = 0;
         static int startY = 0;
         static bool isFinished = false;
@@ -63,19 +66,19 @@ namespace Maze
         {
             int playerX = startX;
             int playerY = startY;
-            
+            ColoringWorld();
 
             while (!isFinished)
             {                              
                 UpdateFPSCount();
 
-                DrawWorld(playerX, playerY);
+                Update(playerX,playerY);
                 DrawPlayerPosition(playerX, playerY);
                 
                 Console.SetCursorPosition(0, Console.WindowHeight - 1);
                 Input();
                 MovePlayer(ref playerX, ref playerY);
-              
+           
             }
         } 
 
@@ -127,11 +130,24 @@ namespace Maze
             }
         }
 
-        static void DrawWorld(int playerX, int playerY)
-        {
-            char[,] buffer = new char[Console.WindowHeight, Console.WindowWidth];
-            ConsoleColor[,] colors = new ConsoleColor[Console.WindowHeight, Console.WindowWidth];
+        static void ColoringWorld()
+        {           
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.BackgroundColor = ConsoleColor.Black;
+            for (int i = 0; i < Console.WindowHeight; i++)
+            {
+                for (int j = 0; j < Console.WindowWidth; j++)
+                {
+                    buffer[i, j] = world[i, j];
+                    ConsoleColor brown = (ConsoleColor)((int)ConsoleColor.DarkRed + (int)ConsoleColor.Green);
+                    colors[i, j] = brown;
+                    Console.ForegroundColor = colors[i, j];
+                }
+            }
 
+        }
+        static void Update(int playerX, int playerY)
+        {
             int startX = Math.Max(0, playerX - 5);
             int startY = Math.Max(0, playerY - 2);
             int endX = Math.Min(Console.WindowWidth - 1, playerX + 5);
@@ -143,48 +159,15 @@ namespace Maze
             {
                 for (int j = startX; j <= endX; j++)
                 {
-                    buffer[i, j] = world[i, j];
-                    ConsoleColor brown = (ConsoleColor)((int)ConsoleColor.DarkRed + (int)ConsoleColor.Green);
-                    colors[i, j] = brown;
+
                     Console.ForegroundColor = colors[i, j];
                     Console.SetCursorPosition(j, i);
                     Console.Out.Write(buffer[i, j]);
                 }
             }
 
-          //  ColorField(Console.WindowWidth, Console.WindowHeight, buffer, colors);
         }
 
-        static void ColorField(int width, int height, char[,] buffer, ConsoleColor[,] colors)
-        {
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.BackgroundColor = ConsoleColor.Black;
-
-            for (int i = 0; i < height; i++)
-            {
-                for (int j = 0; j < width; j++)
-                {
-                    Console.ForegroundColor = colors[i, j];
-                    Console.SetCursorPosition(j, i);
-                    Console.Out.Write(buffer[i, j]);
-                }
-            }
-        }
-        //    static void ColorField(int Width, int Height, char[,]buffer)
-        //     {
-
-        //        ConsoleColor[,] colors = new ConsoleColor[Console.WindowHeight, Console.WindowWidth];
-        //        for (int i = 0; i < Height; i++)
-        //        {
-        //            for (int j = 0; j < Width; j++)
-        //            {
-        //                buffer[i, j] = world[i, j];
-        //                ConsoleColor brown = (ConsoleColor)((int)ConsoleColor.DarkRed + (int)ConsoleColor.Green);
-        //                colors[i, j] = brown;
-
-        //            }
-        //        }
-        //   }
         static void MovePlayer(ref int x, ref int y)
         {
             (int newX, int newY) = CalculateNewPlayerCoords(x, y);
@@ -324,7 +307,8 @@ namespace Maze
         {
             if (isPlayerWantToDig)
             {
-                world[y, x] = ' ';
+                buffer[y, x] = ' ';
+                world[y, x] = buffer[y, x];
                 isPlayerWantToDig = false;
                 return true;
             }
