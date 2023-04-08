@@ -179,10 +179,8 @@ namespace Maze
                 if (!hasDigged)
                     return;
             }
-
-            if (currentChar == 'F')
-                Win();
-
+            FinishChecking(currentChar);
+            
             x = newX;
             y = newY;
         }
@@ -352,6 +350,11 @@ namespace Maze
             int farthestY;
             FindFarthestPoint(startX, startY, out farthestX, out farthestY);
             world[farthestY, farthestX] = 'F';
+        }
+        static void FinishChecking(char currentChar)
+        {
+            if (currentChar == 'F')
+                Win();
         }
         static void Win()
         {
